@@ -1,0 +1,10 @@
+*~
+*.db
+*.swp
+static/*.png
+.emacs.*
+foo.*
+*.out
+\#*#
+.#*
+assets/*
