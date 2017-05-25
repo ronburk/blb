@@ -1,0 +1,211 @@
+#!/bin/bash
+# Copyright (C) 2017 Ron Burk - All Rights Reserved.
+#
+# blb-core - core functions for Burk Labs Bash library
+#
+# 
+
+# declare some global associative arrays
+declare -A BLGlobalTraceStates BLGlobalTraceLeave
+
+# Put initialization in function so you could forego it by
+# commenting out one line, though I hope you do not.
+#
+function BLCoreInit(){
+    # Settings we insist on
+    # signal ERR when anything bad happens
+    set -o errexit
+    # catch uninitialized variables
+    set -o nounset
+    # catch failed pipes
+    set -o pipefail
+
+    # Define traps for tracebacks
+    trap 'BLStackTrace' ERR
+:    trap 'BLExitTrace'  EXIT
+
+    # Want that trap on ERR inherited
+    set -o errtrace
+
+    # Make prompt show details
+    export PS4='+(${BASH_SOURCE##*/}):${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
+
+}
+
+
+function BLTraceSet(){
+    local -i Value="$1"
+    shift
+    # now $1 ... $N  contains the names of functions we will operate on
+    while (( $# > 0 )); do
+        BLGlobalTraceStates["$1"]="$Value"
+        shift
+    done;
+    
+}
+
+function BLTraceOn(){
+    # no arguments means force tracing for ALL participating functions
+    if [[ $# == 0 ]]; then
+        # pretend we were passed names of all participating functions
+        set -- "${!BLGlobalTraceStates[@]}"
+    fi
+    BLTraceSet 1 "$@"
+}
+
+function BLTraceOff(){
+    # no arguments means force tracing off for ALL participating functions
+    if [[ $# == 0 ]]; then
+        # pretend we were passed names of all participating functions
+        set -- "${!BLGlobalTraceStates[@]}"
+    fi
+    BLTraceSet 0 "$@"
+}
+
+function BLTraceDisable(){
+    # no arguments means disable tracing for ALL participating functions
+    if [[ $# == 0 ]]; then
+        # pretend we were passed names of all participating functions
+        set -- "${!BLGlobalTraceStates[@]}"
+    fi
+    BLTraceSet '' "$@"
+}
+
+function BLCoreError(){
+    echo "$@" >/dev/tty
+    exit 1
+}
+function BLCoreEnter() {
+    local -r CallerFuncName="${FUNCNAME[1]}"
+    # if state not set, this will set it to empty string
+    local -r TraceState="${BLGlobalTraceStates[$CallerFuncName]:=}"
+    local    LeaveCode=":"
+    
+    # if caller is trace-enabled
+    if ! [ -z "$TraceState" ]; then
+        # if trace is currently ON
+        if [ -o xtrace ]; then
+            [ "$TraceState" -eq 0 ] && set +o xtrace
+            LeaveCode="set -o xtrace"      # Remember to turn trace back on when caller returns
+        # else if trace is currently OFF
+        else
+            [ "$TraceState" -eq 1 ] && set -o xtrace
+            LeaveCode="set +o xtrace"      # Remember to turn trace back off when caller returns
+        fi
+    fi
+    # store code that BLCoreLeave() just invoke for the caller
+    BLGlobalTraceLeave[$CallerFuncName]="$LeaveCode"
+} 2>/dev/null   # don't want to clutter xtrace output
+
+function BLCoreLeave(){
+    ${BLGlobalTraceLeave[${FUNCNAME[1]}]}
+} 2>/dev/null
+
+# function BLCoreFunctionsInFile(){
+#     BLCoreEnter
+
+#     if [ $# -gt 0 ]; then
+#         Filename="$1"
+#     else
+#         Filename="$BASH_SOURCE"
+#     fi
+
+#     if shopt -q extdebug; then             # if extdebug already on
+#         ShoptRestore=":"                   # then nothing to undo
+#     else
+#         shopt -s extdebug                  # else turn it on
+#         ShoptRestore="shopt -u extdebug"   # and remember to turn it off
+#     fi
+
+#     # With extdebug enabled, `declare -F` will list all function names.
+#     # Read those function names, one line at a time.
+#     while IFS=$' \t\n' read -r  _ _ FuncName; do
+#         echo "_=$_ FuncName=$FuncName"
+#         declare -F $FuncName
+#         IFS=$' \t\n' read -r _ _ DefinedIn < <(declare -F $FuncName)
+#         echo "Compare $Filename to $DefinedIn"
+#         break
+#     done < <(declare -F)
+#     $ShoptRestore                          # restore extdebug state, if necessary
+#     BLCoreLeave
+#     BLStackTrace
+# }
+
+# BLStackTrace() - emit a stack trace
+#
+shopt -s extdebug # otherwise, no BASH_ARGC and BASH_ARGV
+
+# shellcheck disable=SC2120
+function BLStackTrace(){
+    local -i frame=0
+    if [ $# -gt 0 ]; then
+        frame=$1
+    fi
+    declare argv_offset=0
+
+    while caller_info="$(caller "$frame")" ; do
+        if shopt -q extdebug ; then
+            declare -a argv=
+            declare -i argc frame_argc
+
+            for ((frame_argc=BASH_ARGC[frame],frame_argc--,argc=0; frame_argc >= 0; argc++, frame_argc--)) ; do
+                argv[$argc]=${BASH_ARGV[argv_offset+frame_argc]}
+                case "${argv[argc]}" in
+                    *[[:space:]]*) argv[$argc]="'${argv[$argc]}'" ;;
+                esac
+            done
+            argv_offset=$((argv_offset + BASH_ARGC[frame]))
+            echo ":: ${caller_info[2]}: Line ${caller_info[0]}: ${caller_info[1]}(): ${FUNCNAME[frame]} ${argv[*]}"
+            local Src="${caller_info[2]}" LineNum="${caller_info[0]}" SrcLine=""
+            DebugGetSourceLine "$Src" "$LineNum" SrcLine
+            echo "$SrcLine"
+        fi
+
+        frame=$((frame+1))
+    done
+
+    if [[ $frame -eq 1 ]] ; then
+        echo "??????????????????????????"
+        caller_info=( $(caller 0) )
+        echo ":: ${caller_info[2]}: Line ${caller_info[0]}: ${caller_info[1]}"
+    fi
+}
+
+
+
+# assertion functions
+function BLAssert(){
+    BLCoreEnter
+    # no args means assert statement should not have been reached
+    if [ $# -le 0 ]; then die "Assertion failed." ; fi
+    # otherwise, die if assertion not true
+    # shellcheck disable=SC2068
+    if $@ ; then
+        BLCoreLeave
+    else
+        DieMarker
+        echo "Assertion failed: " "$@"
+        local -ir end=${#BASH_SOURCE[@]}
+        local -i i
+        for ((i=1; i < end; ++i));
+            do
+            local -i linenum=${BASH_LINENO[(($i-1))]}
+            echo "${FUNCNAME[$i]}() in ${BASH_SOURCE[$i]}:$linenum"
+            local Src="${BASH_SOURCE[$i]}"
+            if test -r "$Src" -a -f "$Src" ; then
+                # read line number of file
+                mapfile -t -s $((linenum - 1)) -n 1 LineArray < "${Src}"
+                echo "    ${LineArray[*]}"
+            else
+                echo "That's friggin weird. Source file [${Src}] not readable!"
+            fi
+            done
+        Die
+    fi
+}
+
+BLCoreInit
+BLTraceOn BLCoreFunctionsInFile
+BLAssert "[ 1 -gt 3 ]"
+
+echo "and final statement!"

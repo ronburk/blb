@@ -1,0 +1,3 @@
+#!/bin/bash
+. blb-core.sh
+. blb-string.sh
