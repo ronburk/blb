@@ -106,17 +106,16 @@ function BLCoreLeave(){
 #
 
 
-# shellcheck disable=SC2120
+
 function BLStackTrace(){
     local -i StartFrame=0   # assume nobody wants to see *our* stack frame
     local -i iFrame=0 MaxFrame=${#FUNCNAME[@]} iArgc=0 iArgv=0
-    local FileLine
 
     # Logic will be simplified if we always walk the entire stack, even
     # if the caller wishes to omit one or more topmost stack frames.
     # 'StartFrame' is therefore where we actually start printing.
     if [ $# -gt 0 ]; then
-        StartFrame="$1"
+        StartFrame="$1"    # default is to omit our own stack frame
     fi
     local HaveArgs="false"
     # if it is plausible that BASH_ARGC/V are set correctly
@@ -146,8 +145,8 @@ function BLStackTrace(){
     done
         
     local OldSource=""
-    local SrcColorStart="$(tput setaf 1)$(tput setab 7)"
-    local SrcColorStop="$(tput sgr 0)"
+    local -r SrcColorStart="$(tput setaf 1)$(tput setab 7)"
+    local -r SrcColorStop="$(tput sgr 0)"
     for (( iFrame=0; iFrame < MaxFrame-1; ++iFrame )); do
         local Filename="${BASH_SOURCE[iFrame + 1]}"
         local LineNum="${BASH_LINENO[iFrame]}"
@@ -162,7 +161,7 @@ function BLStackTrace(){
             fi
             printf "%-*s#%*d %s%s%s\n" "$MaxFilename" "$MaybeName" "$MaxLineNum" "$LineNum" \
                "$SrcColorStart" "${LineArray[*]}" "$SrcColorStop"
-            if read _ DefLine _ < <( declare -F $Function ); then
+            if read -r _ DefLine _ < <( declare -F "$Function" ); then
                 LineNum=$DefLine
             elif [[ "$Function" == "source" ]]; then
                 LineNum="${BASH_LINENO[iFrame+1]}"
@@ -179,7 +178,7 @@ function BLStackTrace(){
             fi
         fi
         if $HaveArgs && (( iFrame < MaxFrame-2)) ; then
-            local -i ArgCount=BASH_ARGC[iArgc+1]
+            local -i ArgCount=$(( BASH_ARGC[iArgc+1] ))
             while (( ArgCount-- > 0 )); do
                 local Arg="${BASH_ARGV[$iArgv]}";
                 case "$Arg" in  *[[:space:]]*|'') Arg="'$Arg'";  esac

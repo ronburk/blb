@@ -91,3 +91,15 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 # blb
 Burk Labs Bash library
 -->
+
+Install Bash 4.4 On Linux Ubuntu
+
+Run the following commands in Terminal to install Bash 4.4 on Ubuntu 16.04, Ubuntu 15.04 and Ubuntu 14.04 Systems:
+
+sudo apt-get install build-essential
+wget http://ftp.gnu.org/gnu/bash/bash-4.4.tar.gz
+tar xf bash-4.4.tar.gz
+cd bash-4.4
+./configure
+make
+sudo make install
