@@ -1,0 +1,9 @@
+# Simple dequoting, but single and double quotes
+"a"
+a
+'a'
+a
+"a longer string"
+a longer string
+'a longer string'
+a longer string

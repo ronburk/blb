@@ -11,8 +11,30 @@ if ! [ -f "$RootDir/make" ]; then
     exit
 fi
 
+function RunTest(){
+    local -r TestScript="$1"
+    local -r SourceDir="$2"
+    local -r TestData="$3"
+    local -r PassFIle="$4"
 
-echo ${RootDir}
+    local Options=""
+    if [[ $- =~ x ]]; then
+        Options="-x"
+    fi
+
+    rm -f "$PassFile"
+    if ! bash $Options $TestScript $SourceDir $TestData $PassFile; then
+        printf "%s: test script died!\n" "$TestScript"
+        exit 1
+    else
+        if [ -f "$PassFile" ]; then
+            printf "Pass: "
+        else
+            printf "FAIL: "
+        fi
+    fi
+    printf "%s\n" "${TestData}"
+}
 
 if [ $# -ne 1 ]; then
     Syntax
@@ -33,11 +55,20 @@ case "$1" in
         # 2) every unique test must have corresponding .dat file
         # 3) every test that passes must create corresponding .pass file
         # 4) report which tests failed.
-        export BLBSRCDIR=$(pwd)
-        for test in ./test/**/*.sh; do
-            if ! bash "$test" ; then
-                echo "$test: can't happen: script failed."
-                exit 1
+        SourceDir="$PWD/src"
+        for TestScript in test/**/*.sh; do
+            TestDir="${TestScript%.sh}"
+            FileBase="${Dir%.*}"
+            TestData="${TestDir}.dat"
+            PassFile="${TestData/%.dat/.pass}"
+            if [ -d "$TestDir" ]; then
+                for TestData in $TestDir/*.dat; do
+                    PassFile="${TestData/%.dat/.pass}"
+                    RunTest "$TestScript" "$SourceDir" "$TestData" "$PassFile"
+                done
+            elif [ -f "$TestData" ]; then
+                bash $TestScript $SourceDir $TestData $PassFile
+                RunTest "$TestScript" "$SourceDir" "$TestData" "$PassFile"
             fi
         done
         ;;

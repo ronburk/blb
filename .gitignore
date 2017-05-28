@@ -8,3 +8,4 @@ foo.*
 \#*#
 .#*
 assets/*
+*.pass

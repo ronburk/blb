@@ -17,8 +17,8 @@ function StrDequote(){
 
     if [ "${StrDequote_In:0:1}" == "\"" ]; then
         qChar="\""
-    elif [ "${StrDequote_In:0:1}" == "\'" ]; then
-        qChar="\'"
+    elif [ "${StrDequote_In:0:1}" == "'" ]; then
+        qChar="'"
     fi
     # if it's well-formed enough for us to care
     if [ -n "$qChar" ] && [ "$Len" -ge 2 ] && [ "$qChar" == "${StrDequote_In: -1}" ]; then

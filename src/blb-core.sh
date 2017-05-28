@@ -22,7 +22,7 @@ function BLCoreInit(){
 
     # Define traps for tracebacks
     trap 'BLStackTrace' ERR
-:    trap 'BLExitTrace'  EXIT
+    trap "BLExitTrace $?"  EXIT
 
     # Want that trap on ERR inherited
     set -o errtrace
@@ -102,12 +102,20 @@ function BLCoreLeave(){
 } 2>/dev/null
 
 
+function BLExitTrace(){
+    # only trap on error exits
+    if [ $1 -ne 0 ]; then
+        echo "Exit Trace: $1"
+        BLStackTrace
+    fi
+}
 # BLStackTrace() - emit a stack trace
 #
 
 
 
 function BLStackTrace(){
+echo "BLStackTrace! cmd=\"$BASH_COMMAND\" LINENO=$LINENO"
     local -i StartFrame=0   # assume nobody wants to see *our* stack frame
     local -i iFrame=0 MaxFrame=${#FUNCNAME[@]} iArgc=0 iArgv=0
 
@@ -234,5 +242,4 @@ function BLAssert(){
 
 BLCoreInit
 BLTraceOn BLCoreFunctionsInFile
-#BLAssert "[ 1 -gt 3 ]"
 
