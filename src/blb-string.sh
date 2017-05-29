@@ -31,7 +31,8 @@ function StrDequote(){
                     break;
                 # else if we found a doubled quote
                 elif [ "$qChar" == "${StrDequote_In:iChar+1:1}" ]; then
-                     Output+="$Char"; (( ++iChar ))
+#                    Output+="$Char";
+                    (( ++iChar ))
                 fi
             fi
             Output+="$Char"

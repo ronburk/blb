@@ -12,7 +12,7 @@ mapfile -t  <${2:?}
 BLAssert '[ "${MAPFILE-NULL}" != "NULL" ]'
 
 MaxLine=$(( ${#MAPFILE[@]} - 1 ))
-echo "MaxLine = $MaxLine"
+Success="0"
 for (( iLine=1; iLine < MaxLine; iLine+=2 )); do
     Source="${MAPFILE[iLine]}"
     Expect="${MAPFILE[iLine+1]}"
@@ -22,11 +22,13 @@ for (( iLine=1; iLine < MaxLine; iLine+=2 )); do
         if [ "$Source" == "${MAPFILE[iLine]}" ]; then
             printf "Note that source string was unchanged.\n"
         fi
-        exit 1
+        Success=1
     fi
 done
 
-touch "${3:?}"
+if [ $Success -eq 0 ]; then
+    touch "${3:?}"
+fi
 exit 0
 
 
